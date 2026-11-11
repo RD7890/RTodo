@@ -11,6 +11,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Rect
+import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Outline
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.Shape
@@ -25,11 +26,11 @@ class CircularRevealShape(
     private val center: Offset
 ) : Shape {
     override fun createOutline(
-        size: IntSize,
+        size: Size,
         layoutDirection: LayoutDirection,
         density: Density
     ): Outline {
-        val maxRadius = hypot(size.width.toFloat(), size.height.toFloat())
+        val maxRadius = hypot(size.width, size.height)
         val radius = maxRadius * progress
         val path = Path().apply {
             addOval(Rect(center = center, radius = radius))
