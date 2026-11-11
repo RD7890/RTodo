@@ -1,0 +1,63 @@
+name: Build
+
+# Build only: compile + sign an APK (throwaway key) and keep it as a workflow artifact.
+
+on:
+  push:
+    branches: [ "main", "dev" ]
+    paths-ignore: [ '**.md', '.github/**', 'LICENSE*', '.gitignore' ]
+  pull_request:
+    branches: [ "main" ]
+  workflow_dispatch: {}
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
+jobs:
+  build:
+    name: Build RTodo APK
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Compute dev version
+        id: ver
+        run: |
+          BASE=$(grep -oP 'versionName = "\K[0-9]+\.[0-9.]+' app/build.gradle.kts | head -1)
+          BASE=${BASE:-1.0.0}
+          IFS=. read -r MAJ MIN PAT <<< "$BASE"
+          PAT=${PAT:-0}
+          CODE=$(( MAJ*10000000 + MIN*100000 + PAT*1000 + (${{ github.run_number }} % 1000) ))
+          echo "name=${BASE}-dev.${{ github.run_number }}" >> "$GITHUB_OUTPUT"
+          echo "code=${CODE}"                              >> "$GITHUB_OUTPUT"
+
+      - name: Build APK
+        id: apk
+        uses: ./.github/actions/build-apk
+        with:
+          version_name: ${{ steps.ver.outputs.name }}
+          version_code: ${{ steps.ver.outputs.code }}
+
+      - name: Upload APK artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: RTodo-v${{ steps.ver.outputs.name }}
+          path: ${{ steps.apk.outputs.apk_path }}
+          retention-days: 14
+
+      - name: Summary
+        run: |
+          {
+            echo "### Build ${{ steps.ver.outputs.name }}"
+            echo "- APK: \`${{ steps.apk.outputs.apk_name }}\`"
+            echo "- versionCode: \`${{ steps.ver.outputs.code }}\`"
+            echo "- Cert SHA-256: \`${{ steps.apk.outputs.cert_sha256 }}\`"
+          } >> "$GITHUB_STEP_SUMMARY"
